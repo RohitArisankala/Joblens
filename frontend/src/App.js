@@ -984,6 +984,584 @@ const RecruiterProfileSetupModal = ({ onClose, onSuccess }) => {
   );
 };
 
+// Admin Dashboard Component
+const AdminDashboard = () => {
+  const [activeTab, setActiveTab] = useState('overview');
+  const [users, setUsers] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [jobs, setJobs] = useState([]);
+  const [stats, setStats] = useState({
+    totalStudents: 0,
+    totalRecruiters: 0,
+    totalCourses: 0,
+    totalJobs: 0
+  });
+  const [showAddCourseModal, setShowAddCourseModal] = useState(false);
+  const [showAddJobModal, setShowAddJobModal] = useState(false);
+  const { user, logout } = useAuth();
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      // Initialize default data first
+      await axios.post(`${API}/admin/init-data`);
+      
+      // Fetch all data
+      const [coursesRes, jobsRes] = await Promise.all([
+        axios.get(`${API}/courses`),
+        axios.get(`${API}/jobs`)
+      ]);
+
+      setCourses(coursesRes.data);
+      setJobs(jobsRes.data);
+      
+      // Update stats
+      setStats({
+        totalStudents: 150, // Mock data for now
+        totalRecruiters: 25,
+        totalCourses: coursesRes.data.length,
+        totalJobs: jobsRes.data.length
+      });
+    } catch (err) {
+      console.error('Failed to fetch dashboard data');
+    }
+  };
+
+  const deleteCourse = async (courseId) => {
+    if (window.confirm('Are you sure you want to delete this course?')) {
+      try {
+        await axios.delete(`${API}/admin/courses/${courseId}`);
+        fetchDashboardData();
+      } catch (err) {
+        console.error('Failed to delete course');
+      }
+    }
+  };
+
+  const deleteJob = async (jobId) => {
+    if (window.confirm('Are you sure you want to delete this job?')) {
+      try {
+        await axios.delete(`${API}/admin/jobs/${jobId}`);
+        fetchDashboardData();
+      } catch (err) {
+        console.error('Failed to delete job');
+      }
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-2">
+              <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-lg">⚙️</span>
+              </div>
+              <span className="text-xl font-bold text-gray-900">JobLens Admin</span>
+            </div>
+            <div className="flex items-center space-x-4">
+              <span className="text-gray-600">Welcome, Admin</span>
+              <button
+                onClick={logout}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Stats Overview */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-lg p-6 text-center">
+            <div className="text-3xl font-bold text-blue-600 mb-2">{stats.totalStudents}</div>
+            <div className="text-gray-600">Total Students</div>
+          </div>
+          <div className="bg-white rounded-lg p-6 text-center">
+            <div className="text-3xl font-bold text-green-600 mb-2">{stats.totalRecruiters}</div>
+            <div className="text-gray-600">Total Recruiters</div>
+          </div>
+          <div className="bg-white rounded-lg p-6 text-center">
+            <div className="text-3xl font-bold text-purple-600 mb-2">{stats.totalCourses}</div>
+            <div className="text-gray-600">Total Courses</div>
+          </div>
+          <div className="bg-white rounded-lg p-6 text-center">
+            <div className="text-3xl font-bold text-orange-600 mb-2">{stats.totalJobs}</div>
+            <div className="text-gray-600">Total Jobs</div>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="bg-white rounded-lg shadow-sm">
+          <div className="border-b border-gray-200">
+            <nav className="flex">
+              <button
+                onClick={() => setActiveTab('overview')}
+                className={`px-6 py-3 font-medium text-sm ${activeTab === 'overview' ? 'border-b-2 border-red-600 text-red-600' : 'text-gray-500'}`}
+              >
+                Overview
+              </button>
+              <button
+                onClick={() => setActiveTab('courses')}
+                className={`px-6 py-3 font-medium text-sm ${activeTab === 'courses' ? 'border-b-2 border-red-600 text-red-600' : 'text-gray-500'}`}
+              >
+                Manage Courses
+              </button>
+              <button
+                onClick={() => setActiveTab('jobs')}
+                className={`px-6 py-3 font-medium text-sm ${activeTab === 'jobs' ? 'border-b-2 border-red-600 text-red-600' : 'text-gray-500'}`}
+              >
+                Manage Jobs
+              </button>
+              <button
+                onClick={() => setActiveTab('users')}
+                className={`px-6 py-3 font-medium text-sm ${activeTab === 'users' ? 'border-b-2 border-red-600 text-red-600' : 'text-gray-500'}`}
+              >
+                Manage Users
+              </button>
+            </nav>
+          </div>
+
+          <div className="p-6">
+            {activeTab === 'overview' && (
+              <div>
+                <h2 className="text-2xl font-bold mb-6">Admin Dashboard Overview</h2>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="bg-gray-50 rounded-lg p-6">
+                    <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span className="text-sm">New student registered: Alice Johnson</span>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <span className="text-sm">Course completed: Python Basics</span>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                        <span className="text-sm">New job posted: Frontend Developer</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gray-50 rounded-lg p-6">
+                    <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+                    <div className="space-y-3">
+                      <button
+                        onClick={() => setShowAddCourseModal(true)}
+                        className="w-full text-left bg-white p-3 rounded hover:bg-gray-100"
+                      >
+                        ➕ Add New Course
+                      </button>
+                      <button
+                        onClick={() => setShowAddJobModal(true)}
+                        className="w-full text-left bg-white p-3 rounded hover:bg-gray-100"
+                      >
+                        💼 Add New Job
+                      </button>
+                      <button className="w-full text-left bg-white p-3 rounded hover:bg-gray-100">
+                        📊 View Analytics
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'courses' && (
+              <div>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold">Manage Courses</h2>
+                  <button
+                    onClick={() => setShowAddCourseModal(true)}
+                    className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
+                  >
+                    Add New Course
+                  </button>
+                </div>
+                
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {courses.map((course) => (
+                    <div key={course.id} className="border border-gray-200 rounded-lg p-6">
+                      <h3 className="text-xl font-semibold mb-2">{course.title}</h3>
+                      <p className="text-gray-600 mb-4">{course.description}</p>
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-lg font-bold text-green-600">₹{course.price}</span>
+                        <span className="text-sm text-gray-500">{course.duration}</span>
+                      </div>
+                      <div className="flex space-x-2">
+                        <button className="flex-1 bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700">
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => deleteCourse(course.id)}
+                          className="flex-1 bg-red-600 text-white px-3 py-2 rounded text-sm hover:bg-red-700"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'jobs' && (
+              <div>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold">Manage Jobs</h2>
+                  <button
+                    onClick={() => setShowAddJobModal(true)}
+                    className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
+                  >
+                    Add New Job
+                  </button>
+                </div>
+                
+                <div className="space-y-4">
+                  {jobs.map((job) => (
+                    <div key={job.id} className="border border-gray-200 rounded-lg p-6">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <h3 className="text-xl font-semibold mb-2">{job.title}</h3>
+                          <p className="text-gray-600 mb-2">{job.company} • {job.location}</p>
+                          <p className="text-gray-700 mb-4">{job.description}</p>
+                          <div className="flex items-center space-x-4 text-sm text-gray-500">
+                            <span>Type: {job.job_type}</span>
+                            {job.salary && <span>Salary: {job.salary}</span>}
+                            <span>Posted: {new Date(job.created_at).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                        <div className="flex space-x-2">
+                          <button className="bg-blue-600 text-white px-3 py-2 rounded text-sm hover:bg-blue-700">
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => deleteJob(job.id)}
+                            className="bg-red-600 text-white px-3 py-2 rounded text-sm hover:bg-red-700"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'users' && (
+              <div>
+                <h2 className="text-2xl font-bold mb-6">Manage Users</h2>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="bg-gray-50 rounded-lg p-6">
+                    <h3 className="text-lg font-semibold mb-4">Recent Students</h3>
+                    <div className="space-y-3">
+                      <div className="bg-white p-3 rounded flex justify-between items-center">
+                        <div>
+                          <p className="font-medium">Alice Johnson</p>
+                          <p className="text-sm text-gray-600">CS • Stanford • Class of 2025</p>
+                        </div>
+                        <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">3 Skills</span>
+                      </div>
+                      <div className="bg-white p-3 rounded flex justify-between items-center">
+                        <div>
+                          <p className="font-medium">John Doe</p>
+                          <p className="text-sm text-gray-600">EE • MIT • Class of 2024</p>
+                        </div>
+                        <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">1 Skill</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gray-50 rounded-lg p-6">
+                    <h3 className="text-lg font-semibold mb-4">Recent Recruiters</h3>
+                    <div className="space-y-3">
+                      <div className="bg-white p-3 rounded flex justify-between items-center">
+                        <div>
+                          <p className="font-medium">Bob Smith</p>
+                          <p className="text-sm text-gray-600">TechCorp Inc • HR Manager</p>
+                        </div>
+                        <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">Verified</span>
+                      </div>
+                      <div className="bg-white p-3 rounded flex justify-between items-center">
+                        <div>
+                          <p className="font-medium">Sarah Wilson</p>
+                          <p className="text-sm text-gray-600">StartupXYZ • Talent Lead</p>
+                        </div>
+                        <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs">Pending</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Add Course Modal */}
+      {showAddCourseModal && <AddCourseModal onClose={() => setShowAddCourseModal(false)} onSuccess={fetchDashboardData} />}
+      
+      {/* Add Job Modal */}
+      {showAddJobModal && <AddJobModal onClose={() => setShowAddJobModal(false)} onSuccess={fetchDashboardData} />}
+    </div>
+  );
+};
+
+// Add Course Modal Component
+const AddCourseModal = ({ onClose, onSuccess }) => {
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    price: 500,
+    duration: '2-3 hours',
+    skill_name: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      await axios.post(`${API}/admin/courses`, formData);
+      onSuccess();
+      onClose();
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to add course');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold">Add New Course</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">✕</button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Course Title</label>
+            <input
+              type="text"
+              value={formData.title}
+              onChange={(e) => setFormData({...formData, title: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+              required
+            />
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({...formData, description: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+              rows="3"
+              required
+            />
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Skill Name</label>
+            <input
+              type="text"
+              value={formData.skill_name}
+              onChange={(e) => setFormData({...formData, skill_name: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Price (₹)</label>
+              <input
+                type="number"
+                value={formData.price}
+                onChange={(e) => setFormData({...formData, price: parseFloat(e.target.value)})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Duration</label>
+              <input
+                type="text"
+                value={formData.duration}
+                onChange={(e) => setFormData({...formData, duration: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                required
+              />
+            </div>
+          </div>
+
+          {error && <div className="text-red-600 text-sm mb-4">{error}</div>}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 disabled:opacity-50"
+          >
+            {loading ? 'Adding Course...' : 'Add Course'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// Add Job Modal Component
+const AddJobModal = ({ onClose, onSuccess }) => {
+  const [formData, setFormData] = useState({
+    title: '',
+    company: '',
+    location: '',
+    description: '',
+    job_type: 'fulltime',
+    required_skills: '',
+    salary: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const jobData = {
+        ...formData,
+        required_skills: formData.required_skills.split(',').map(s => s.trim()).filter(s => s)
+      };
+      
+      await axios.post(`${API}/jobs`, jobData);
+      onSuccess();
+      onClose();
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to add job');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4 max-h-screen overflow-y-auto">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold">Add New Job</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">✕</button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Job Title</label>
+            <input
+              type="text"
+              value={formData.title}
+              onChange={(e) => setFormData({...formData, title: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+              required
+            />
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Company</label>
+            <input
+              type="text"
+              value={formData.company}
+              onChange={(e) => setFormData({...formData, company: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+              required
+            />
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
+            <input
+              type="text"
+              value={formData.location}
+              onChange={(e) => setFormData({...formData, location: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+              required
+            />
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({...formData, description: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+              rows="3"
+              required
+            />
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Job Type</label>
+            <select
+              value={formData.job_type}
+              onChange={(e) => setFormData({...formData, job_type: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+            >
+              <option value="fulltime">Full Time</option>
+              <option value="internship">Internship</option>
+            </select>
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Required Skills (comma separated)</label>
+            <input
+              type="text"
+              value={formData.required_skills}
+              onChange={(e) => setFormData({...formData, required_skills: e.target.value})}
+              placeholder="Python, SQL, Communication"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+            />
+          </div>
+
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Salary (Optional)</label>
+            <input
+              type="text"
+              value={formData.salary}
+              onChange={(e) => setFormData({...formData, salary: e.target.value})}
+              placeholder="₹5-8 LPA"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+            />
+          </div>
+
+          {error && <div className="text-red-600 text-sm mb-4">{error}</div>}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 disabled:opacity-50"
+          >
+            {loading ? 'Adding Job...' : 'Add Job'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 // Main App Component
 function App() {
   const { user, loading } = useAuth();
@@ -1011,6 +1589,10 @@ function App() {
 
   if (user.role === 'recruiter') {
     return <RecruiterDashboard />;
+  }
+
+  if (user.role === 'admin') {
+    return <AdminDashboard />;
   }
 
   return <LandingPage />;
