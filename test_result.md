@@ -278,14 +278,9 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus:
-    - "JWT Authentication System"
-    - "User Management APIs"
-    - "Student Profile & Skills Management"
-    - "Recruiter Dashboard APIs"
-    - "Database Models & MongoDB Integration"
+  current_focus: []
   stuck_tasks: []
-  test_all: true
+  test_all: false
   test_priority: "high_first"
 
 agent_communication:
