@@ -506,6 +506,284 @@ class JobLensAPITester:
             except Exception as e:
                 self.log_test(f"Auth Protection ({method} {endpoint})", False, f"Error: {str(e)}")
     
+    def test_admin_authentication(self):
+        """Test admin user registration and login"""
+        # Admin registration should already be done in test_user_registration
+        if 'admin' not in self.tokens:
+            self.log_test("Admin Authentication", False, "Admin user not registered")
+            return
+            
+        # Test admin login
+        try:
+            response = self.make_request('POST', '/auth/login', {
+                'email': 'admin@joblens.com',
+                'password': 'AdminPass789!'
+            })
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('user_role') == 'admin':
+                    self.log_test("Admin Authentication", True, "Admin login successful")
+                else:
+                    self.log_test("Admin Authentication", False, 
+                                f"Role mismatch: expected admin, got {data.get('user_role')}")
+            else:
+                self.log_test("Admin Authentication", False, 
+                            f"Admin login failed with status {response.status_code}")
+        except Exception as e:
+            self.log_test("Admin Authentication", False, f"Error: {str(e)}")
+    
+    def test_admin_data_initialization(self):
+        """Test admin data initialization endpoint"""
+        if 'admin' not in self.tokens:
+            self.log_test("Admin Data Initialization", False, "No admin token available")
+            return
+            
+        try:
+            response = self.make_request('POST', '/admin/init-data', 
+                                      token=self.tokens['admin'])
+            
+            if response.status_code == 200:
+                self.log_test("Admin Data Initialization", True, 
+                            "Default data initialized successfully")
+            else:
+                self.log_test("Admin Data Initialization", False, 
+                            f"Data initialization failed with status {response.status_code}", 
+                            response.text)
+        except Exception as e:
+            self.log_test("Admin Data Initialization", False, f"Error: {str(e)}")
+    
+    def test_admin_course_management(self):
+        """Test admin course CRUD operations"""
+        if 'admin' not in self.tokens:
+            self.log_test("Admin Course Management", False, "No admin token available")
+            return
+        
+        course_id = None
+        
+        # Test adding a new course
+        new_course = {
+            "title": "Advanced JavaScript",
+            "description": "Master advanced JavaScript concepts and frameworks",
+            "price": 750.0,
+            "duration": "4-5 hours",
+            "skill_name": "Advanced JavaScript"
+        }
+        
+        try:
+            response = self.make_request('POST', '/admin/courses', 
+                                      new_course, self.tokens['admin'])
+            
+            if response.status_code == 200:
+                data = response.json()
+                course_id = data.get('course_id')
+                self.log_test("Admin Add Course", True, "Successfully added new course")
+            else:
+                self.log_test("Admin Add Course", False, 
+                            f"Course addition failed with status {response.status_code}", 
+                            response.text)
+        except Exception as e:
+            self.log_test("Admin Add Course", False, f"Error: {str(e)}")
+        
+        # Test updating a course (if we have a course_id)
+        if course_id:
+            updated_course = {
+                "title": "Advanced JavaScript & React",
+                "description": "Master advanced JavaScript concepts, React, and modern frameworks",
+                "price": 850.0
+            }
+            
+            try:
+                response = self.make_request('PUT', f'/admin/courses/{course_id}', 
+                                          updated_course, self.tokens['admin'])
+                
+                if response.status_code == 200:
+                    self.log_test("Admin Update Course", True, "Successfully updated course")
+                else:
+                    self.log_test("Admin Update Course", False, 
+                                f"Course update failed with status {response.status_code}", 
+                                response.text)
+            except Exception as e:
+                self.log_test("Admin Update Course", False, f"Error: {str(e)}")
+        
+        # Test deleting a course (if we have a course_id)
+        if course_id:
+            try:
+                response = self.make_request('DELETE', f'/admin/courses/{course_id}', 
+                                          token=self.tokens['admin'])
+                
+                if response.status_code == 200:
+                    self.log_test("Admin Delete Course", True, "Successfully deleted course")
+                else:
+                    self.log_test("Admin Delete Course", False, 
+                                f"Course deletion failed with status {response.status_code}", 
+                                response.text)
+            except Exception as e:
+                self.log_test("Admin Delete Course", False, f"Error: {str(e)}")
+    
+    def test_admin_job_management(self):
+        """Test admin job management operations"""
+        if 'admin' not in self.tokens:
+            self.log_test("Admin Job Management", False, "No admin token available")
+            return
+        
+        # First, get a job ID to delete (from existing jobs)
+        job_id = None
+        try:
+            response = self.make_request('GET', '/jobs')
+            if response.status_code == 200:
+                jobs = response.json()
+                if jobs:
+                    job_id = jobs[0]['id']
+            
+            if not job_id:
+                # Create a job first for testing deletion
+                job_data = {
+                    "title": "Test Job for Deletion",
+                    "company": "Test Company",
+                    "location": "Test Location",
+                    "description": "This job is created for testing admin deletion functionality",
+                    "job_type": "internship",
+                    "required_skills": ["Python"],
+                    "year_level": "3rd",
+                    "salary": "$20/hour"
+                }
+                
+                response = self.make_request('POST', '/jobs', job_data, self.tokens['admin'])
+                if response.status_code == 200:
+                    job_id = response.json().get('job_id')
+        except Exception as e:
+            self.log_test("Admin Job Management Setup", False, f"Error setting up job: {str(e)}")
+        
+        # Test deleting a job
+        if job_id:
+            try:
+                response = self.make_request('DELETE', f'/admin/jobs/{job_id}', 
+                                          token=self.tokens['admin'])
+                
+                if response.status_code == 200:
+                    self.log_test("Admin Delete Job", True, "Successfully deleted job")
+                else:
+                    self.log_test("Admin Delete Job", False, 
+                                f"Job deletion failed with status {response.status_code}", 
+                                response.text)
+            except Exception as e:
+                self.log_test("Admin Delete Job", False, f"Error: {str(e)}")
+        else:
+            self.log_test("Admin Delete Job", False, "No job available for deletion test")
+    
+    def test_admin_user_management(self):
+        """Test admin user management operations"""
+        if 'admin' not in self.tokens:
+            self.log_test("Admin User Management", False, "No admin token available")
+            return
+        
+        # Test getting all users
+        try:
+            response = self.make_request('GET', '/admin/users', 
+                                      token=self.tokens['admin'])
+            
+            if response.status_code == 200:
+                data = response.json()
+                if all(key in data for key in ['users', 'students', 'recruiters']):
+                    total_users = len(data['users'])
+                    total_students = len(data['students'])
+                    total_recruiters = len(data['recruiters'])
+                    self.log_test("Admin Get All Users", True, 
+                                f"Retrieved {total_users} users, {total_students} students, {total_recruiters} recruiters")
+                else:
+                    self.log_test("Admin Get All Users", False, 
+                                "Missing required sections in response", data)
+            else:
+                self.log_test("Admin Get All Users", False, 
+                            f"User retrieval failed with status {response.status_code}", 
+                            response.text)
+        except Exception as e:
+            self.log_test("Admin Get All Users", False, f"Error: {str(e)}")
+        
+        # Test user verification
+        user_id_to_verify = None
+        if 'recruiter' in self.users:
+            user_id_to_verify = self.users['recruiter']['user_id']
+        
+        if user_id_to_verify:
+            try:
+                response = self.make_request('PUT', f'/admin/users/{user_id_to_verify}/verify', 
+                                          token=self.tokens['admin'])
+                
+                if response.status_code == 200:
+                    self.log_test("Admin Verify User", True, "Successfully verified user")
+                else:
+                    self.log_test("Admin Verify User", False, 
+                                f"User verification failed with status {response.status_code}", 
+                                response.text)
+            except Exception as e:
+                self.log_test("Admin Verify User", False, f"Error: {str(e)}")
+        else:
+            self.log_test("Admin Verify User", False, "No user available for verification test")
+    
+    def test_admin_analytics(self):
+        """Test admin analytics endpoint"""
+        if 'admin' not in self.tokens:
+            self.log_test("Admin Analytics", False, "No admin token available")
+            return
+        
+        try:
+            response = self.make_request('GET', '/admin/analytics', 
+                                      token=self.tokens['admin'])
+            
+            if response.status_code == 200:
+                data = response.json()
+                if 'stats' in data and 'recent_activity' in data:
+                    stats = data['stats']
+                    required_stats = ['total_users', 'total_students', 'total_recruiters', 
+                                    'total_courses', 'total_jobs', 'total_applications']
+                    
+                    if all(stat in stats for stat in required_stats):
+                        self.log_test("Admin Analytics", True, 
+                                    f"Analytics retrieved successfully with {len(stats)} stats")
+                    else:
+                        missing_stats = [s for s in required_stats if s not in stats]
+                        self.log_test("Admin Analytics", False, 
+                                    f"Missing stats: {missing_stats}", data)
+                else:
+                    self.log_test("Admin Analytics", False, 
+                                "Missing required sections in analytics response", data)
+            else:
+                self.log_test("Admin Analytics", False, 
+                            f"Analytics retrieval failed with status {response.status_code}", 
+                            response.text)
+        except Exception as e:
+            self.log_test("Admin Analytics", False, f"Error: {str(e)}")
+    
+    def test_admin_access_control(self):
+        """Test that admin endpoints reject non-admin users"""
+        admin_endpoints = [
+            ('POST', '/admin/init-data'),
+            ('POST', '/admin/courses'),
+            ('GET', '/admin/users'),
+            ('GET', '/admin/analytics')
+        ]
+        
+        # Test with student token
+        if 'student' in self.tokens:
+            for method, endpoint in admin_endpoints:
+                try:
+                    response = self.make_request(method, endpoint, 
+                                              token=self.tokens['student'])
+                    
+                    if response.status_code == 403:
+                        self.log_test(f"Admin Access Control ({method} {endpoint})", True, 
+                                    "Correctly rejected non-admin user")
+                    else:
+                        self.log_test(f"Admin Access Control ({method} {endpoint})", False, 
+                                    f"Expected 403, got {response.status_code}")
+                except Exception as e:
+                    self.log_test(f"Admin Access Control ({method} {endpoint})", False, 
+                                f"Error: {str(e)}")
+        else:
+            self.log_test("Admin Access Control", False, "No student token available for testing")
+    
     def run_all_tests(self):
         """Run all tests in sequence"""
         print("🚀 Starting JobLens Backend API Tests")
