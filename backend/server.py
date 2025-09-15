@@ -467,7 +467,198 @@ async def initialize_default_data(current_user: dict = Depends(get_current_user)
             course = Course(**course_data)
             await db.courses.insert_one(course.dict())
     
+    # Add some default jobs if none exist
+    job_count = await db.jobs.count_documents({})
+    if job_count == 0:
+        default_jobs = [
+            {
+                "title": "Frontend Developer Intern",
+                "company": "TechCorp Inc",
+                "location": "Bangalore, India",
+                "description": "Build responsive web applications using React and modern frontend technologies",
+                "job_type": "internship",
+                "required_skills": ["Python", "SQL", "Communication"],
+                "year_level": "3rd",
+                "salary": "₹15,000/month",
+                "posted_by": current_user["user_id"]
+            },
+            {
+                "title": "Software Engineer",
+                "company": "StartupXYZ",
+                "location": "Mumbai, India", 
+                "description": "Full-stack development role working on cutting-edge products",
+                "job_type": "fulltime",
+                "required_skills": ["Python", "SQL"],
+                "experience_level": "fresher",
+                "salary": "₹6-8 LPA",
+                "posted_by": current_user["user_id"]
+            }
+        ]
+        
+        for job_data in default_jobs:
+            job = Job(**job_data)
+            await db.jobs.insert_one(job.dict())
+    
     return {"message": "Default data initialized successfully"}
+
+# Admin Course Management
+@api_router.post("/admin/courses")
+async def add_course(course_data: dict, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    course = Course(**course_data)
+    await db.courses.insert_one(course.dict())
+    return {"message": "Course added successfully", "course_id": course.id}
+
+@api_router.put("/admin/courses/{course_id}")
+async def update_course(course_id: str, course_data: dict, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    result = await db.courses.update_one(
+        {"id": course_id},
+        {"$set": course_data}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Course not found")
+    
+    return {"message": "Course updated successfully"}
+
+@api_router.delete("/admin/courses/{course_id}")
+async def delete_course(course_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    result = await db.courses.delete_one({"id": course_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Course not found")
+    
+    return {"message": "Course deleted successfully"}
+
+# Admin Job Management
+@api_router.delete("/admin/jobs/{job_id}")
+async def delete_job(job_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    result = await db.jobs.delete_one({"id": job_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    return {"message": "Job deleted successfully"}
+
+# Admin User Management
+@api_router.get("/admin/users")
+async def get_all_users(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    users = await db.users.find().to_list(1000)
+    students = await db.students.find().to_list(1000)
+    recruiters = await db.recruiters.find().to_list(1000)
+    
+    result = {
+        "users": [],
+        "students": [],
+        "recruiters": []
+    }
+    
+    for user in users:
+        result["users"].append({
+            "id": user["id"],
+            "name": user["name"],
+            "email": user["email"],
+            "role": user["role"],
+            "created_at": user["created_at"],
+            "is_verified": user.get("is_verified", False)
+        })
+    
+    for student in students:
+        user_data = next((u for u in users if u["id"] == student["user_id"]), None)
+        if user_data:
+            result["students"].append({
+                "id": student["id"],
+                "name": user_data["name"],
+                "email": user_data["email"],
+                "college": student["college"],
+                "branch": student["branch"],
+                "year_of_passout": student["year_of_passout"],
+                "completed_skills": student["completed_skills"],
+                "skill_count": len(student["completed_skills"])
+            })
+    
+    for recruiter in recruiters:
+        user_data = next((u for u in users if u["id"] == recruiter["user_id"]), None)
+        if user_data:
+            result["recruiters"].append({
+                "id": recruiter["id"],
+                "name": user_data["name"],
+                "email": user_data["email"],
+                "company": recruiter["company"],
+                "position": recruiter["position"],
+                "is_verified": recruiter["is_verified"]
+            })
+    
+    return result
+
+@api_router.put("/admin/users/{user_id}/verify")
+async def verify_user(user_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Update user verification status
+    user_result = await db.users.update_one(
+        {"id": user_id},
+        {"$set": {"is_verified": True}}
+    )
+    
+    # Also update recruiter verification if it's a recruiter
+    await db.recruiters.update_one(
+        {"user_id": user_id},
+        {"$set": {"is_verified": True}}
+    )
+    
+    if user_result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {"message": "User verified successfully"}
+
+# Admin Analytics
+@api_router.get("/admin/analytics")
+async def get_analytics(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    # Get counts
+    total_users = await db.users.count_documents({})
+    total_students = await db.students.count_documents({})
+    total_recruiters = await db.recruiters.count_documents({})
+    total_courses = await db.courses.count_documents({})
+    total_jobs = await db.jobs.count_documents({})
+    total_applications = await db.applications.count_documents({})
+    
+    # Get recent activity (mock data for now)
+    recent_activity = [
+        {"type": "registration", "message": "New student registered", "timestamp": datetime.now(timezone.utc)},
+        {"type": "skill", "message": "Course completed: Python Basics", "timestamp": datetime.now(timezone.utc)},
+        {"type": "job", "message": "New job posted: Frontend Developer", "timestamp": datetime.now(timezone.utc)}
+    ]
+    
+    return {
+        "stats": {
+            "total_users": total_users,
+            "total_students": total_students,
+            "total_recruiters": total_recruiters,
+            "total_courses": total_courses,
+            "total_jobs": total_jobs,
+            "total_applications": total_applications
+        },
+        "recent_activity": recent_activity
+    }
 
 # Include the router in the main app
 app.include_router(api_router)
